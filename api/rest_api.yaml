@@ -1,0 +1,737 @@
+openapi: 3.0.0
+info:
+  title: Traveler Social Network API
+  description: API for a social network focused on travel, with feeds, posts, reactions, comments, and subscriptions.
+  version: 1.0.0
+servers:
+  - url: /api
+tags:
+  - name: Feed
+    description: Endpoints for retrieving feeds (user, location, global)
+  - name: Posts
+    description: Endpoints for creating and deleting posts
+  - name: Reactions
+    description: Endpoints for liking/disliking posts
+  - name: Comments
+    description: Endpoints for managing comments
+  - name: Subscriptions
+    description: Endpoints for managing user subscriptions
+  - name: Locations
+    description: Endpoints for searching and retrieving locations
+  - name: Authorization
+    description: Endpoints for user registration and login
+  - name: Media
+    description: Endpoints for uploading and retrieving media (photos)
+paths:
+  /auth/register:
+    post:
+      summary: Register a new user
+      tags:
+        - Authorization
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                username:
+                  type: string
+                  description: Username (10 characters max)
+                email:
+                  type: string
+                  description: User email
+                password:
+                  type: string
+                  description: User password
+                avatar_url:
+                  type: string
+                  description: Avatar URL (optional)
+              required:
+                - username
+                - email
+                - password
+      responses:
+        201:
+          description: User created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: string
+                    format: uuid
+                    description: User ID
+                  username:
+                    type: string
+                  email:
+                    type: string
+                  avatar_url:
+                    type: string
+                  created_at:
+                    type: string
+                    format: date-time
+        400:
+          description: Bad Request
+        500:
+          description: Server error
+
+  /auth/login:
+    post:
+      summary: Login user
+      tags:
+        - Authorization
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                email:
+                  type: string
+                  description: User email
+                password:
+                  type: string
+                  description: User password
+              required:
+                - email
+                - password
+      responses:
+        200:
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  access_token:
+                    type: string
+                    description: JWT token
+                  expires_in:
+                    type: integer
+                    description: Token expiration time in seconds
+        400:
+          description: Bad Request
+        401:
+          description: Unauthorized
+        500:
+          description: Server error
+
+  /feed:
+    get:
+      summary: Get global feed (based on subscriptions)
+      tags:
+        - Feed
+      parameters:
+        - name: page
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 10
+      responses:
+        200:
+          description: Feed items
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/FeedItem'
+        400:
+          description: Bad Request
+        500:
+          description: Server error
+
+  /users/{userId}/feed:
+    get:
+      summary: Get user's feed (posts by user)
+      tags:
+        - Feed
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: page
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 10
+      responses:
+        200:
+          description: Feed items
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/FeedItem'
+        400:
+          description: Bad Request
+        404:
+          description: User not found
+        500:
+          description: Server error
+
+  /locations/{locationId}/feed:
+    get:
+      summary: Get location's feed (popular posts for location)
+      tags:
+        - Feed
+      parameters:
+        - name: locationId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: page
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 10
+      responses:
+        200:
+          description: Feed items
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/FeedItem'
+        400:
+          description: Bad Request
+        404:
+          description: Location not found
+        500:
+          description: Server error
+
+  /posts:
+    post:
+      summary: Create a new post
+      tags:
+        - Posts
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                text:
+                  type: string
+                  description: Post text (max 1000 characters)
+                  maxLength: 1000
+                location_id:
+                  type: string
+                  format: uuid
+                  description: Location ID (optional)
+                photo_urls:
+                  type: array
+                  items:
+                    type: string
+                    description: Photo URLs (max 5)
+                  maxItems: 5
+              required:
+                - text
+      responses:
+        201:
+          description: Post created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Post'
+        400:
+          description: Bad Request
+        401:
+          description: Unauthorized
+        500:
+          description: Server error
+
+  /posts/{postId}:
+    delete:
+      summary: Delete a post
+      tags:
+        - Posts
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: postId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        200:
+          description: Post deleted
+        400:
+          description: Bad Request
+        401:
+          description: Unauthorized
+        404:
+          description: Post not found
+        500:
+          description: Server error
+
+  /posts/{postId}/reactions:
+    put:
+      summary: Like or dislike a post
+      tags:
+        - Reactions
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: postId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                reaction_type:
+                  type: string
+                  enum: [like, dislike]
+                  description: Reaction type
+              required:
+                - reaction_type
+      responses:
+        200:
+          description: Reaction updated
+        400:
+          description: Bad Request
+        401:
+          description: Unauthorized
+        404:
+          description: Post not found
+        500:
+          description: Server error
+
+  /posts/{postId}/comments:
+    post:
+      summary: Add a comment to a post
+      tags:
+        - Comments
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: postId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                text:
+                  type: string
+                  description: Comment text (max 1000 characters)
+                  maxLength: 1000
+              required:
+                - text
+      responses:
+        201:
+          description: Comment created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Comment'
+        400:
+          description: Bad Request
+        401:
+          description: Unauthorized
+        404:
+          description: Post not found
+        500:
+          description: Server error
+    get:
+      summary: Get comments for a post
+      tags:
+        - Comments
+      parameters:
+        - name: postId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: page
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 10
+      responses:
+        200:
+          description: Comments
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Comment'
+        400:
+          description: Bad Request
+        404:
+          description: Post not found
+        500:
+          description: Server error
+
+  /subscriptions:
+    post:
+      summary: Subscribe to a user
+      tags:
+        - Subscriptions
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                followee_id:
+                  type: string
+                  format: uuid
+                  description: User ID to follow
+              required:
+                - followee_id
+      responses:
+        200:
+          description: Subscribed
+        400:
+          description: Bad Request
+        401:
+          description: Unauthorized
+        404:
+          description: User not found
+        500:
+          description: Server error
+    delete:
+      summary: Unsubscribe from a user
+      tags:
+        - Subscriptions
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                followee_id:
+                  type: string
+                  format: uuid
+                  description: User ID to unfollow
+              required:
+                - followee_id
+      responses:
+        200:
+          description: Unsubscribed
+        400:
+          description: Bad Request
+        401:
+          description: Unauthorized
+        404:
+          description: User not found
+        500:
+          description: Server error
+
+  /locations:
+    get:
+      summary: Search locations by name
+      tags:
+        - Locations
+      parameters:
+        - name: name
+          in: query
+          required: false
+          schema:
+            type: string
+            description: Location name (partial match)
+        - name: page
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 10
+      responses:
+        200:
+          description: Locations
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Location'
+        400:
+          description: Bad Request
+        500:
+          description: Server error
+
+  /media/upload:
+    post:
+      summary: Upload a photo (stub)
+      tags:
+        - Media
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                file:
+                  type: string
+                  format: binary
+                  description: Photo file
+      responses:
+        200:
+          description: Photo uploaded
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  photo_id:
+                    type: string
+                    format: uuid
+                  url:
+                    type: string
+                    description: Photo URL
+        400:
+          description: Bad Request
+        401:
+          description: Unauthorized
+        500:
+          description: Server error
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    User:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        username:
+          type: string
+        email:
+          type: string
+        avatar_url:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+      required:
+        - id
+        - username
+        - email
+        - created_at
+
+    Location:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        description:
+          type: string
+        latitude:
+          type: number
+        longitude:
+          type: number
+      required:
+        - id
+        - name
+        - description
+
+    Photo:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        url:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+      required:
+        - id
+        - url
+        - created_at
+
+    Post:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        text:
+          type: string
+        user_id:
+          type: string
+          format: uuid
+        location_id:
+          type: string
+          format: uuid
+        like_count:
+          type: integer
+        dislike_count:
+          type: integer
+        created_at:
+          type: string
+          format: date-time
+        deleted_at:
+          type: string
+          format: date-time
+      required:
+        - id
+        - text
+        - user_id
+        - created_at
+
+    Comment:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        post_id:
+          type: string
+          format: uuid
+        user_id:
+          type: string
+          format: uuid
+        text:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        deleted_at:
+          type: string
+          format: date-time
+      required:
+        - id
+        - post_id
+        - user_id
+        - text
+        - created_at
+
+    Reaction:
+      type: object
+      properties:
+        user_id:
+          type: string
+          format: uuid
+        post_id:
+          type: string
+          format: uuid
+        reaction_type:
+          type: string
+          enum: [like, dislike]
+      required:
+        - user_id
+        - post_id
+        - reaction_type
+
+    FeedItem:
+      type: object
+      properties:
+        post:
+          $ref: '#/components/schemas/Post'
+        user:
+          $ref: '#/components/schemas/User'
+        location:
+          $ref: '#/components/schemas/Location'
+        photos:
+          type: array
+          items:
+            $ref: '#/components/schemas/Photo'
+        comments:
+          type: array
+          items:
+            $ref: '#/components/schemas/Comment'
+        reactions:
+          type: array
+          items:
+            $ref: '#/components/schemas/Reaction'
+      required:
+        - post
+        - user
+        - location
+        - photos
+        - comments
+        - reactions
+
+    Error:
+      type: object
+      properties:
+        error:
+          type: string
+          description: Error message
+      required:
+        - error
